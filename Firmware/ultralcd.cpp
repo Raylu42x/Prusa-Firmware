@@ -5555,7 +5555,8 @@ static void mbl_magnets_elimination_toggle() {
 
 static void mbl_mesh_toggle() {
 	uint8_t mesh_nr = eeprom_read_byte((uint8_t*)EEPROM_MBL_POINTS_NR);
-	if(mesh_nr == 3) mesh_nr = 7;
+	if (mesh_nr == 3) mesh_nr = 5;
+	else if (mesh_nr == 5) mesh_nr = 7;
 	else mesh_nr = 3;
 	eeprom_update_byte_notify((uint8_t*)EEPROM_MBL_POINTS_NR, mesh_nr);
 }
@@ -5582,7 +5583,7 @@ static void lcd_mesh_bed_leveling_settings()
 	MENU_BEGIN();
 	ON_MENU_LEAVE(
 		// Prompt user to run Z calibration for best results with region MBL.
-		if (points_nr == 7) {
+		if (points_nr == 7 || points_nr == 5) {
             lcd_z_calibration_prompt(true);
 		}
 	);

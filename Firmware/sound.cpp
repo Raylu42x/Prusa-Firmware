@@ -119,9 +119,9 @@ static void Sound_DoSound_Blind_Alert(void)
      for(nI=0; nI<20; nI++)
      {
          WRITE(BEEPER,HIGH);
-         delayMicroseconds(94);
+         delayMicroseconds(23);
          WRITE(BEEPER,LOW);
-         delayMicroseconds(94);
+         delayMicroseconds(165);
      }
 }
 
@@ -132,9 +132,9 @@ uint8_t nI;
  for(nI=0;nI<5;nI++)
      {
      WRITE(BEEPER,HIGH);
-     delayMicroseconds(75);
+     delayMicroseconds(19);
      WRITE(BEEPER,LOW);
-     delayMicroseconds(75);
+     delayMicroseconds(131);
      }
 }
 
@@ -145,9 +145,9 @@ uint8_t nI;
 for(nI=0;nI<10;nI++)
      {
      WRITE(BEEPER,HIGH);
-     delayMicroseconds(100);
+     delayMicroseconds(25);
      WRITE(BEEPER,LOW);
-     delayMicroseconds(100);
+     delayMicroseconds(175);
      }
 }
 
@@ -167,9 +167,9 @@ nMax=bOnce?1:3;
 for(nI=0;nI<nMax;nI++)
      {
      WRITE(BEEPER,HIGH);
-     delayMicroseconds(200);
+     delayMicroseconds(87);
      WRITE(BEEPER,LOW);
-     delayMicroseconds(500);
+     delayMicroseconds(613);
      }
 }
 

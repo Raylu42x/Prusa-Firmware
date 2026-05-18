@@ -11,6 +11,11 @@
 #include "fastio.h"
 #include "macros.h"
 
+// Beeper duty cycle as a right-shift of OCR4A (the period register).
+// shift=3 → 1/8 duty (~12.5%) which is roughly quarter perceived volume on a piezo.
+// Increase shift to reduce volume further; decrease (min 1) to raise it.
+#define BEEPER_DUTY_SHIFT 3
+
 void timer4_init(void)
 {
 	CRITICAL_SECTION_START;
@@ -53,20 +58,21 @@ void timer4_set_fan0(uint8_t duty)
 		CRITICAL_SECTION_START;
 		// Enable the PWM output on the fan pin.
 		TCCR4A |= _BV(COM4C1);
-		OCR4C = (((uint16_t)duty) * ((uint16_t)((TIMSK4 & _BV(OCIE4A)) ? OCR4A : 255U))) / 255U;
+		OCR4C = (((uint16_t)duty) * ((uint16_t)((TIMSK4 & _BV(OCIE4B)) ? OCR4A : 255U))) / 255U;
 		CRITICAL_SECTION_END;
 	}
 }
 #endif //EXTRUDER_0_AUTO_FAN_PIN
 
-// Because of the timer mode change, we need two interrupts. We could also try to assume that the frequency is x2
-// and use a TOGGLE(), but this seems to work well enough so I left it as it is now.
-ISR(TIMER4_COMPA_vect)
+// OVF fires at BOTTOM (count=0): start the pulse.
+// COMPB fires when count reaches OCR4B (1/8 of period): end the pulse.
+// This gives ~12.5% duty cycle, which is roughly quarter perceived volume on a piezo.
+ISR(TIMER4_OVF_vect)
 {
 	WRITE(BEEPER, 1);
 }
 
-ISR(TIMER4_OVF_vect)
+ISR(TIMER4_COMPB_vect)
 {
 	WRITE(BEEPER, 0);
 }
@@ -89,12 +95,13 @@ void tone4(_UNUSED uint8_t _pin, uint16_t frequency)
 	TCCR4B = (TCCR4B & 0b11111000) | prescalarbits;
 #ifdef EXTRUDER_0_AUTO_FAN_PIN
 	// Scale the fan PWM duty cycle so that it remains constant, but at the tone frequency
-	OCR4C = (OCR4C * ocr) / (uint16_t)((TIMSK4 & _BV(OCIE4A)) ? OCR4A : 255U);
+	OCR4C = (OCR4C * ocr) / (uint16_t)((TIMSK4 & _BV(OCIE4B)) ? OCR4A : 255U);
 #endif //EXTRUDER_0_AUTO_FAN_PIN
-	// Set calcualted ocr
+	// Set period and duty-cycle registers
 	OCR4A = ocr;
-	// Enable Output compare A interrupt and timer overflow interrupt
-	TIMSK4 |= _BV(OCIE4A) | _BV(TOIE4);
+	OCR4B = ocr >> BEEPER_DUTY_SHIFT;
+	// Enable COMPB and overflow interrupts (COMPA no longer used for beeper)
+	TIMSK4 = (TIMSK4 & ~_BV(OCIE4A)) | _BV(OCIE4B) | _BV(TOIE4);
 	CRITICAL_SECTION_END;
 }
 
@@ -105,11 +112,12 @@ void noTone4(_UNUSED uint8_t _pin)
 	TCCR4B = (TCCR4B & 0b11111000) | _BV(CS42) | _BV(CS40);
 #ifdef EXTRUDER_0_AUTO_FAN_PIN
 	// Scale the fan OCR back to the original value.
-	OCR4C = (OCR4C * 255U) / (uint16_t)((TIMSK4 & _BV(OCIE4A)) ? OCR4A : 255U);
+	OCR4C = (OCR4C * 255U) / (uint16_t)((TIMSK4 & _BV(OCIE4B)) ? OCR4A : 255U);
 #endif //EXTRUDER_0_AUTO_FAN_PIN
 	OCR4A = 255U;
-	// Disable Output compare A interrupt and timer overflow interrupt
-	TIMSK4 &= ~(_BV(OCIE4A) | _BV(TOIE4));
+	OCR4B = 255U;
+	// Disable COMPB and overflow interrupts
+	TIMSK4 &= ~(_BV(OCIE4A) | _BV(OCIE4B) | _BV(TOIE4));
 	CRITICAL_SECTION_END;
 	// Turn beeper off if it was on when noTone was called
 	WRITE(BEEPER, 0);

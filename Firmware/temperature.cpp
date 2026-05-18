@@ -2195,16 +2195,14 @@ static void handle_warning()
         if (first) {
             if(warn_beep) {
                 lcd_setalertstatuspgm(_T(MSG_THERMAL_ANOMALY), LCD_STATUS_INFO);
-                WRITE(BEEPER, HIGH);
+                _tone(BEEPER, 1000);
             }
             first = false;
-        } else {
-            if(warn_beep) TOGGLE(BEEPER);
         }
     } else {
         // warning cleared, reset state
         warning_state.warning = false;
-        if(warn_beep) WRITE(BEEPER, LOW);
+        if(warn_beep) _noTone(BEEPER);
         first = true;
     }
 }

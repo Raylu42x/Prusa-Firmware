@@ -1038,6 +1038,22 @@ static void xflash_err_msg()
 // "Setup" function is called by the Arduino framework on startup.
 // Before startup, the Timers-functions (PWM)/Analog RW and HardwareSerial provided by the Arduino-code
 // are initialized by the main() routine provided by the Arduino framework.
+static void startup_melody()
+{
+#define NOTE(freq, dur) _tone(BEEPER, freq); _delay_ms(dur); _noTone(BEEPER); _delay_ms(30);
+    // Ode to Joy — first phrase
+    NOTE(330, 150) NOTE(330, 150) NOTE(349, 150) NOTE(392, 150)
+    NOTE(392, 150) NOTE(349, 150) NOTE(330, 150) NOTE(294, 150)
+    NOTE(262, 150) NOTE(262, 150) NOTE(294, 150) NOTE(330, 200)
+    _tone(BEEPER, 294); _delay_ms(400); _noTone(BEEPER); _delay_ms(100);
+    // second phrase
+    NOTE(330, 150) NOTE(330, 150) NOTE(349, 150) NOTE(392, 150)
+    NOTE(392, 150) NOTE(349, 150) NOTE(330, 150) NOTE(294, 150)
+    NOTE(262, 150) NOTE(262, 150) NOTE(294, 150) NOTE(330, 200)
+    _tone(BEEPER, 262); _delay_ms(500); _noTone(BEEPER); _delay_ms(50);
+#undef NOTE
+}
+
 void setup()
 {
   watchdogEarlyDisable();
@@ -1600,6 +1616,7 @@ void setup()
 #endif //UVLO_SUPPORT
 
   fCheckModeInit();
+  startup_melody();
   KEEPALIVE_STATE(NOT_BUSY);
 #ifdef WATCHDOG
   wdt_enable(WDTO_4S);
@@ -2616,7 +2633,7 @@ static void gcode_G80()
 #endif //PINDA_THERMISTOR
 
     uint8_t nMeasPoints = eeprom_read_byte((uint8_t*)EEPROM_MBL_POINTS_NR);
-    if (uint8_t codeSeen = code_seen('N'), value = code_value_uint8(); codeSeen && (value == 7 || value == 3))
+    if (uint8_t codeSeen = code_seen('N'), value = code_value_uint8(); codeSeen && (value == 7 || value == 5 || value == 3))
       nMeasPoints = value;
 
     // 7x7 region MBL needs tighter thresholds for triggering a Z realignment. This is because you want to have as little of a misalignment as possible between
@@ -2656,8 +2673,13 @@ static void gcode_G80()
             }
 
             // check for points that are skipped
+            bool isOn5x5Mesh = (col == 0 || col == 2 || col == 3 || col == 4 || col == 6) &&
+                               (row == 0 || row == 2 || row == 3 || row == 4 || row == 6);
             if (nMeasPoints == 3) {
                 if (!isOn3x3Mesh)
+                    continue;
+            } else if (nMeasPoints == 5) {
+                if (!isOn5x5Mesh)
                     continue;
             } else {
                 const float x_pos = BED_X(col);
@@ -2696,8 +2718,16 @@ static void gcode_G80()
         float x_pos = BED_X(ix);
         float y_pos = BED_Y(iy);
 
+        bool isOn5x5Mesh = (ix == 0 || ix == 2 || ix == 3 || ix == 4 || ix == 6) &&
+                           (iy == 0 || iy == 2 || iy == 3 || iy == 4 || iy == 6);
         if (nMeasPoints == 3) {
             if (!isOn3x3Mesh) {
+                mesh_point++;
+                mbl.set_z(ix, iy, NAN);
+                continue; //skip
+            }
+        } else if (nMeasPoints == 5) {
+            if (!isOn5x5Mesh) {
                 mesh_point++;
                 mbl.set_z(ix, iy, NAN);
                 continue; //skip
@@ -2854,7 +2884,10 @@ static void gcode_G80()
         }
     }
 
-    mbl.upsample_3x3(); //interpolation from 3x3 to 7x7 points using largrangian polynomials while using the same array z_values[iy][ix] for storing (just coppying measured data to new destination and interpolating between them)
+    if (nMeasPoints == 5)
+        mbl.upsample_5x5();
+    else
+        mbl.upsample_3x3(); //interpolation from 3x3 to 7x7 points using largrangian polynomials while using the same array z_values[iy][ix] for storing (just coppying measured data to new destination and interpolating between them)
 
     { // apply magnet compensation
         uint8_t useMagnetCompensation = code_seen('M') ? code_value_uint8() : eeprom_read_byte((uint8_t*)EEPROM_MBL_MAGNET_ELIMINATION);

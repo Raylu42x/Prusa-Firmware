@@ -17,6 +17,7 @@ public:
     float get_z(float x, float y);
     void set_z(uint8_t ix, uint8_t iy, float z) { z_values[iy][ix] = z; }
     void upsample_3x3();
+    void upsample_5x5();
     void print();
 };
 

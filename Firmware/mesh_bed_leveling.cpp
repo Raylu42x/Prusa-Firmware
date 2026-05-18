@@ -87,6 +87,24 @@ void mesh_bed_leveling::upsample_3x3()
     }
 }
 
+void mesh_bed_leveling::upsample_5x5()
+{
+    // Probed at 7x7 indices {0,2,3,4,6} x {0,2,3,4,6}. Fill in unknown indices 1 and 5.
+    // Index 1 is the exact midpoint of 0 and 2; index 5 is the exact midpoint of 4 and 6.
+    const uint8_t known[5] = {0, 2, 3, 4, 6};
+    // Step 1: fill col 1 and col 5 for all probed rows
+    for (uint8_t k = 0; k < 5; ++k) {
+        uint8_t iy = known[k];
+        z_values[iy][1] = 0.5f * (z_values[iy][0] + z_values[iy][2]);
+        z_values[iy][5] = 0.5f * (z_values[iy][4] + z_values[iy][6]);
+    }
+    // Step 2: fill row 1 and row 5 for all columns (cols 1 and 5 now populated from step 1)
+    for (uint8_t ix = 0; ix < MESH_NUM_X_POINTS; ++ix) {
+        z_values[1][ix] = 0.5f * (z_values[0][ix] + z_values[2][ix]);
+        z_values[5][ix] = 0.5f * (z_values[4][ix] + z_values[6][ix]);
+    }
+}
+
 void mesh_bed_leveling::print() {
     SERIAL_PROTOCOLLNPGM("Num X,Y: " STRINGIFY(MESH_NUM_X_POINTS) "," STRINGIFY(MESH_NUM_Y_POINTS));
     SERIAL_PROTOCOLLNPGM("Z search height: " STRINGIFY(MESH_HOME_Z_SEARCH));
